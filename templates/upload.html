@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VM Snapshot Attack Predictor</title>
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f7fa;
+            color: #222;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 0;
+        }
+
+        .container {
+            width: 700px;
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.12);
+            text-align: center;
+        }
+
+        h2 {
+            color: #008f7a;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"],
+        input[type="number"] {
+
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            color: #000;
+            border-radius: 6px;
+            width: 85%;
+            text-align: center;
+            font-size: 15px;
+        }
+
+        button {
+
+            background-color: #00b894;
+            color: white;
+            padding: 10px 22px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            font-size: 15px;
+        }
+
+        button:hover {
+            background-color: #019875;
+        }
+
+        .result {
+
+            margin-top: 25px;
+            padding: 18px;
+            border-radius: 10px;
+        }
+
+        .attack {
+
+            background-color: #ffe6e6;
+            border: 1px solid red;
+        }
+
+        .normal {
+
+            background-color: #e6f0ff;
+            border: 1px solid blue;
+        }
+
+        .error {
+
+            margin-top: 20px;
+            color: red;
+            font-weight: bold;
+        }
+
+        .probabilities {
+
+            margin-top: 10px;
+            font-size: 14px;
+            color: #444;
+        }
+
+        .lime-section {
+
+            margin-top: 25px;
+            text-align: center;
+        }
+
+        table {
+
+            width: 100%;
+            margin-top: 12px;
+            border-collapse: collapse;
+            background-color: #fff;
+        }
+
+        th {
+
+            background-color: #008f7a;
+            color: white;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+
+        td {
+
+            padding: 10px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        .download-btn {
+
+            margin-top: 25px;
+            background-color: #444;
+        }
+
+        .download-btn:hover {
+
+            background-color: #222;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div id="capture-area" class="container">
+
+    <h2>VM Snapshot Attack Predictor</h2>
+
+    <!-- ============================= -->
+    <!-- Upload Form -->
+    <!-- ============================= -->
+
+    <form action="/predict" method="POST" enctype="multipart/form-data">
+
+        <input
+            type="file"
+            name="dataset"
+            accept=".csv"
+            required>
+
+        <br>
+
+        <label>
+            Enter Snapshot Row Number:
+        </label>
+
+        <br>
+
+        <input
+            type="number"
+            name="snapshot_index"
+            min="1"
+            value="{{ snapshot_index if snapshot_index else 1 }}"
+            required>
+
+        <br>
+
+        <button type="submit">
+            Upload & Predict
+        </button>
+
+    </form>
+
+    <!-- ============================= -->
+    <!-- Error Message -->
+    <!-- ============================= -->
+
+    {% if error %}
+
+        <div class="error">
+            {{ error }}
+        </div>
+
+    {% endif %}
+
+    <!-- ============================= -->
+    <!-- Prediction Result -->
+    <!-- ============================= -->
+
+    {% if prediction %}
+
+        <div class="result {% if prediction == 'Attack' %}attack{% else %}normal{% endif %}">
+
+            <h3>
+                VM Instance Classification Result
+            </h3>
+
+            <p>
+                <strong>Snapshot:</strong>
+                {{ snapshot_index }}
+            </p>
+
+            <!-- STATUS -->
+
+            <p style="font-size:20px;">
+
+                <strong>Status:</strong>
+
+                {% if prediction == 'Attack' %}
+
+                    <span style="color:red; font-weight:bold;">
+                        VM Instance Attacked
+                    </span>
+
+                {% else %}
+
+                    <span style="color:blue; font-weight:bold;">
+                        VM Instance Normal
+                    </span>
+
+                {% endif %}
+
+            </p>
+
+            <!-- CONFIDENCE -->
+
+            <p style="font-size:18px;">
+
+                <strong>Confidence:</strong>
+                {{ confidence }}%
+
+            </p>
+
+            <!-- ============================= -->
+            <!-- LIME PREDICTION PROBABILITIES -->
+            <!-- ============================= -->
+
+            <div style="
+                margin-top:20px;
+                padding:15px;
+                border:1px solid #ccc;
+                border-radius:8px;
+                background-color:#fafafa;
+            ">
+
+                <h3 style="margin-top:0;">
+                    LIME Prediction Probabilities
+                </h3>
+
+                <!-- NORMAL -->
+
+                <div style="margin-bottom:15px; text-align:left;">
+
+                    <strong style="color:blue;">
+                        Normal
+                    </strong>
+
+                    <div style="
+                        background:#ddd;
+                        border-radius:5px;
+                        width:100%;
+                        height:22px;
+                    ">
+
+                        <div style="
+                            width: {{ normal_probability }}%;
+                            background: blue;
+                            height:100%;
+                            border-radius:5px;
+                            text-align:right;
+                            color:white;
+                            font-size:12px;
+                            line-height:22px;
+                            padding-right:5px;
+                        ">
+
+                            {{ "%.2f"|format(normal_probability/100) }}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <!-- ATTACK -->
+
+                <div style="text-align:left;">
+
+                    <strong style="color:red;">
+                        Attack
+                    </strong>
+
+                    <div style="
+                        background:#ddd;
+                        border-radius:5px;
+                        width:100%;
+                        height:22px;
+                    ">
+
+                        <div style="
+                            width: {{ attack_probability }}%;
+                            background: red;
+                            height:100%;
+                            border-radius:5px;
+                            text-align:right;
+                            color:white;
+                            font-size:12px;
+                            line-height:22px;
+                            padding-right:5px;
+                        ">
+
+                            {{ "%.2f"|format(attack_probability/100) }}
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    {% endif %}
+
+    <!-- ============================= -->
+    <!-- LIME FEATURES TABLE -->
+    <!-- ============================= -->
+
+    {% if lime_features %}
+
+        <div class="lime-section">
+
+            <h3>
+                Top Contributing Features (LIME)
+            </h3>
+
+            <table>
+
+                <tr>
+
+                    <th>
+                        Feature Condition
+                    </th>
+
+                    <th>
+                        Contribution Score
+                    </th>
+
+                </tr>
+
+                {% for feature, weight in lime_features %}
+
+                    <tr>
+
+                        <td>
+                            {{ feature }}
+                        </td>
+
+                        {% if prediction == 'Attack' %}
+
+                            {% if weight >= 0 %}
+
+                                <td style="color:red; font-weight:bold;">
+                                    +{{ "%.4f"|format(weight) }}
+                                </td>
+
+                            {% else %}
+
+                                <td style="color:blue; font-weight:bold;">
+                                    {{ "%.4f"|format(weight) }}
+                                </td>
+
+                            {% endif %}
+
+                        {% else %}
+
+                            {% if weight >= 0 %}
+
+                                <td style="color:blue; font-weight:bold;">
+                                    +{{ "%.4f"|format(weight) }}
+                                </td>
+
+                            {% else %}
+
+                                <td style="color:red; font-weight:bold;">
+                                    {{ "%.4f"|format(weight) }}
+                                </td>
+
+                            {% endif %}
+
+                        {% endif %}
+
+                    </tr>
+
+                {% endfor %}
+
+            </table>
+
+        </div>
+
+        <!-- ============================= -->
+        <!-- DOWNLOAD BUTTON -->
+        <!-- ============================= -->
+
+        <button
+            onclick="downloadScreenshot()"
+            class="download-btn">
+
+            Download Full Screenshot
+
+        </button>
+
+    {% endif %}
+
+</div>
+
+<!-- ============================= -->
+<!-- SCREENSHOT SCRIPT -->
+<!-- ============================= -->
+
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+<script>
+
+function downloadScreenshot() {
+
+    const captureElement =
+        document.getElementById("capture-area");
+
+    html2canvas(captureElement, {
+
+        scale: 4,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        scrollY: -window.scrollY
+
+    }).then(canvas => {
+
+        const image =
+            canvas.toDataURL("image/png");
+
+        const link =
+            document.createElement("a");
+
+        link.href = image;
+
+        link.download =
+            "VM_Full_Prediction_Explanation.png";
+
+        link.click();
+
+    });
+}
+
+</script>
+
+</body>
+</html>
