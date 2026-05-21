@@ -12,8 +12,8 @@ app = Flask(__name__)
 # LOAD TRAINED MODEL FILES
 # =========================================================
 
-model = joblib.load("ffnn_model.pkl")
-scaler = joblib.load("scaler.pkl")
+model = joblib.load("ffnn_model_n.pkl")
+scaler = joblib.load("scaler_n.pkl")
 X_train_scaled = joblib.load("X_train_scaled.pkl")
 
 # =========================================================
